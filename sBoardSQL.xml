@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="sboard" >
+	
+	<sql id="ssearchCondition">
+		<if test='starget eq "stitle"'>		 			
+				stitle 		like '%' || #{skeyword} || '%'
+		</if>  
+	  <if test='starget eq "scontent"'>
+	  	scontent 	like '%' || #{skeyword} || '%'
+	  </if>
+	  <if test='starget eq "swriter"'>
+	 		swriter 	like '%' || #{skeyword} || '%'
+	  </if>
+	  <if test='starget eq "both"'>
+	  (stitle 	like '%' || #{skeyword} || '%'
+	   or
+	   scontent like '%' || #{skeyword} || '%')
+	  </if> 
+	</sql>
+	
+	<!-- 검색에 따른 전체게시물수 -->
+	<select id="ssearchCnt" 
+		resultType="int"
+		parameterType="sboard">
+		SELECT COUNT(*)   
+	  FROM   sboard
+	  WHERE  sisShow='Y' and
+	  			 <include refid="ssearchCondition" />	
+	</select>
+	
+	<!-- 검색  -->
+	<select id="sboardSearch" parameterType="sboard"
+					resultType="sboard">
+	
+	select 
+	*
+	from(select
+							sno,
+							stitle,
+							sday,
+							splace,
+							simglink,
+							sdate,
+							shit,
+							spass,
+							swriter,
+					 		nvl(t.cnt,0)	as cnt,
+					 		mnick, 			
+							row_number() over(order by sdate desc) as rno				
+					FROM sboard,
+								(select sforino,
+										 	count(*) as cnt
+										 	from sfileinfo
+										 	group by sforino) t,
+											memberInfo 	
+						 where sisShow='Y'
+									 and
+									 sboard.sno = t.sforino(+)
+									 and 
+									 swriter = mid
+									 and
+									 <include refid="ssearchCondition" />	)
+		 where rno Between #{start} and #{end}
+	
+					
+	</select>
+	
+	<!-- 삭제  -->
+	<update id="deletesboard"
+					parameterType="sboard">
+	update sboard
+	set	sisShow='N'
+	where sno=#{sForiNo}
+				and
+				spass=#{spass}
+	
+	</update>
+	
+	<!--수정처리  -->
+	<update id="updatesboard"
+					parameterType="sboard">
+	update sboard 
+	set 
+	stitle=#{stitle},
+	stype=#{stype},
+	scontent=#{scontent},
+	scost=#{scost},
+	splace=#{splace},
+	sdplace=#{sdplace},
+	spass=#{spass},
+	sday=#{sday},
+	
+	sdday=#{sdday},
+	simglink=#{simglink}
+	
+		
+	where  
+	sno=#{sForiNo}
+	</update>
+	
+	
+	<!--조회수증가  -->
+	<update id="supdatehit" parameterType="int">
+		update sboard
+		set shit = shit+1
+		where sno=#{sForiNo}
+	</update>
+	
+	<!--sboard에서 데이터 조회  -->
+	<!-- CLOB데이터를 SELECT하기 위해 먼저 CLOB를 String으로 처리 -->
+	<resultMap type="sboard" id="sBoardContent">
+		<result property="scontent" column="scontent" 
+		        jdbcType="CLOB"    javaType="string"/>
+	</resultMap>
+	<select id="getSBoardView" parameterType="int" resultMap="sBoardContent">
+		select
+	
+		sno,
+		stitle,
+		scontent,
+		swriter,
+		sdate,
+		shit,
+		splace,
+		sdplace, 
+		scost, 
+		stype,
+		spass,
+		sday, 
+		sdday,
+		simglink,
+		mnick
+		from sboard,
+				 memberInfo
+		where sboard.swriter=memberInfo.mid
+					and
+					sno=#{sForiNo}
+					and
+					sisShow='Y'
+	</select>
+	
+	<!-- SFileInfo 해당게시물 첨부파일정보 조회  -->
+	<select id="getSFileInfo" parameterType="int"
+					resultType="sboard">
+	 select 
+		 sFno, 
+		 sForiNo, 
+	   sFpath, 
+	   sForiName,
+	   sFsaveName,
+	   sFlength  		 
+	 from sFileInfo
+   where
+   sForiNo=#{sForiNo} 		
+	</select>
+	
+	<!-- 글입력  -->
+	<insert id="sInsertBoard" parameterType="sboard">
+	  	<selectKey keyProperty="sno"
+							 resultType="int"
+		  				 order="BEFORE">
+			SELECT nvl(max(sno),0)+1  FROM   sboard
+		</selectKey>
+		INSERT INTO sboard
+		VALUES( #{sno},
+	         #{stitle},#{scontent},
+        #{swriter},SYSDATE,0,#{spass},'Y',#{splace},#{sdplace},
+        #{scost},#{stype},#{sday},#{sdday},
+        #{simglink})	
+	</insert>
+	
+	<!-- 첨부파일정보 입력 -->
+	<insert id="sInsertFileInfo" parameterType="sboard">
+		insert into sFileInfo
+		values( (select nvl(max(sFno),0)+1 from sFileInfo ),
+				#{sForiNo},	#{sFpath},#{sForiName},#{sFsaveName},#{sFlength})
+	</insert>
+	
+	<!-- 전체 게시물수 -->
+	<select id="stotalCnt" resultType="int">
+		SELECT COUNT(*)   
+	  FROM   sboard
+	  WHERE  sisShow='Y'
+	</select>
+
+	<!--글목록 조회  -->
+	<select id="sboardlist" 
+					resultType="sboard"
+					parameterType="sboard" >
+	select 
+	*
+	from(select
+							sno,
+							stitle,
+							sday,
+							splace,
+							stype,
+							simglink,
+							sdate,
+							shit,
+							spass,
+							swriter,
+					 		nvl(t.cnt,0)	as cnt,
+					 		 			
+							row_number() over(order by sno desc) as rno				
+					FROM sboard,
+								(select sforino,
+										 	count(*) as cnt
+										 	from sfileinfo
+										 	group by sforino) t
+											 	
+						 where sisShow='Y'
+									 and
+									 sboard.sno = t.sforino(+))
+		 where rno Between #{start} and #{end}				 
+	
+	</select>
+
+</mapper>
