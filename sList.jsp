@@ -20,6 +20,7 @@ $(document).ready(function(){
 		
 	$("#ssearchFrm").submit();
 	});
+
 });
 </script>
 <style>
