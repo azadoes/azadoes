@@ -19,7 +19,7 @@
 <script>	
  	$(function(){
 		$("#sWriteBtn").click(function(){		
-			//무결성 검사. 글쓴이 id = "title" 제목,내용 필수 입력
+			//무결성 검사. 글쓴이, 제목,내용 필수 입력
 			var st=$("#stitle").val();
 			var sc=$("#scontent").val();
 			var sp2=$("#splace").val();
